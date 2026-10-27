@@ -2,12 +2,8 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="theme-color" content="#667eea">
-    <title>内容生成器</title>
-    <link rel="manifest" href="manifest.json">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>留学课程内容生成器</title>
     <style>
         * {
             margin: 0;
@@ -247,15 +243,15 @@
             <div class="form-group">
                 <label>🔑 API Key</label>
                 <input type="password" id="apiKey" placeholder="输入你的通义千问 API Key">
+                <label style="display: flex; align-items: center; gap: 8px; margin-top: 8px; font-weight: normal; font-size: 13px; color: #666; cursor: pointer;">
+                    <input type="checkbox" id="rememberKey" style="width: 16px; height: 16px; accent-color: #667eea;">
+                    <span>记住 API Key（下次自动填充）</span>
+                </label>
             </div>
             
             <div class="form-group">
                 <label>📝 内容主题</label>
-                <div style="display: flex; gap: 8px;">
-                    <input type="text" id="topic" placeholder="例如：雅思听力技巧、A-level数学选课指南" style="flex: 1;">
-                    <button type="button" id="voiceBtn" onclick="toggleVoiceInput()" style="width: 48px; height: 48px; border: none; border-radius: 8px; background: #667eea; color: white; font-size: 20px; cursor: pointer; flex-shrink: 0;">🎤</button>
-                </div>
-                <div id="voiceStatus" style="display: none; margin-top: 8px; padding: 8px; background: #e8f5e9; border-radius: 6px; font-size: 13px; color: #2e7d32;"></div>
+                <input type="text" id="topic" placeholder="例如：雅思听力技巧、A-level数学选课指南、留学申请时间规划">
             </div>
             
             <div class="form-group">
@@ -288,10 +284,7 @@
             
             <div class="form-group">
                 <label>✨ 补充要求（可选）</label>
-                <div style="display: flex; gap: 8px; align-items: flex-start;">
-                    <textarea id="requirements" placeholder="例如：针对高中生、强调提分效果、包含优惠活动等" style="flex: 1;"></textarea>
-                    <button type="button" id="voiceBtn2" onclick="toggleVoiceInput2()" style="width: 48px; height: 48px; border: none; border-radius: 8px; background: #667eea; color: white; font-size: 20px; cursor: pointer; flex-shrink: 0; margin-top: 0;">🎤</button>
-                </div>
+                <textarea id="requirements" placeholder="例如：针对高中生、强调提分效果、包含优惠活动等"></textarea>
             </div>
             
             <button class="btn" id="generateBtn" onclick="generateContent()">🚀 生成内容</button>
@@ -312,130 +305,33 @@
     </div>
 
     <script>
-        // Voice Recognition
-        let recognition = null;
-        let isListening = false;
-        let currentTarget = 'topic'; // 'topic' or 'requirements'
-
-        function initSpeechRecognition() {
-            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            if (!SpeechRecognition) {
-                return null;
+        // Load saved API Key on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedKey = localStorage.getItem('apiKey');
+            const savedRemember = localStorage.getItem('rememberKey');
+            
+            if (savedKey) {
+                document.getElementById('apiKey').value = savedKey;
             }
-            const recognition = new SpeechRecognition();
-            recognition.lang = 'zh-CN';
-            recognition.continuous = true;
-            recognition.interimResults = true;
-            
-            recognition.onresult = (event) => {
-                let finalTranscript = '';
-                let interimTranscript = '';
-                
-                for (let i = event.resultIndex; i < event.results.length; i++) {
-                    const transcript = event.results[i][0].transcript;
-                    if (event.results[i].isFinal) {
-                        finalTranscript += transcript;
-                    } else {
-                        interimTranscript += transcript;
-                    }
-                }
-                
-                const targetEl = document.getElementById(currentTarget === 'topic' ? 'topic' : 'requirements');
-                if (finalTranscript) {
-                    targetEl.value += finalTranscript;
-                }
-                
-                const statusEl = document.getElementById('voiceStatus');
-                if (interimTranscript) {
-                    statusEl.textContent = '🎤 正在听：' + interimTranscript;
-                } else if (finalTranscript) {
-                    statusEl.textContent = '✅ 已添加：' + finalTranscript;
-                    setTimeout(() => { statusEl.style.display = 'none'; }, 2000);
-                }
-            };
-            
-            recognition.onerror = (event) => {
-                console.error('Speech recognition error:', event.error);
-                const statusEl = document.getElementById('voiceStatus');
-                statusEl.style.background = '#ffebee';
-                statusEl.style.color = '#c62828';
-                statusEl.textContent = '❌ 识别失败：' + (event.error === 'not-allowed' ? '请允许麦克风权限' : event.error);
-                statusEl.style.display = 'block';
-                stopVoiceInput();
-            };
-            
-            recognition.onend = () => {
-                if (isListening) {
-                    recognition.start(); // Restart if still supposed to be listening
-                }
-            };
-            
-            return recognition;
-        }
-
-        function toggleVoiceInput() {
-            currentTarget = 'topic';
-            toggleVoiceInputCommon('voiceBtn');
-        }
-
-        function toggleVoiceInput2() {
-            currentTarget = 'requirements';
-            toggleVoiceInputCommon('voiceBtn2');
-        }
-
-        function toggleVoiceInputCommon(btnId) {
-            const statusEl = document.getElementById('voiceStatus');
-            
-            if (!recognition) {
-                recognition = initSpeechRecognition();
+            if (savedRemember === 'true') {
+                document.getElementById('rememberKey').checked = true;
             }
+        });
+
+        // Save API Key when generating content
+        function saveApiKey() {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            const remember = document.getElementById('rememberKey').checked;
             
-            if (!recognition) {
-                statusEl.style.background = '#ffebee';
-                statusEl.style.color = '#c62828';
-                statusEl.textContent = '❌ 你的浏览器不支持语音识别，请使用 Chrome 或 Safari';
-                statusEl.style.display = 'block';
-                return;
-            }
-            
-            if (isListening) {
-                stopVoiceInput();
+            if (remember) {
+                localStorage.setItem('apiKey', apiKey);
+                localStorage.setItem('rememberKey', 'true');
             } else {
-                startVoiceInput(btnId);
+                localStorage.removeItem('apiKey');
+                localStorage.removeItem('rememberKey');
             }
         }
 
-        function startVoiceInput(btnId) {
-            const btn = document.getElementById(btnId);
-            const statusEl = document.getElementById('voiceStatus');
-            
-            try {
-                recognition.start();
-                isListening = true;
-                btn.textContent = '⏹';
-                btn.style.background = '#e53935';
-                statusEl.style.background = '#e8f5e9';
-                statusEl.style.color = '#2e7d32';
-                statusEl.textContent = '🎤 正在听，请说话...';
-                statusEl.style.display = 'block';
-            } catch (e) {
-                console.error('Error starting recognition:', e);
-            }
-        }
-
-        function stopVoiceInput() {
-            isListening = false;
-            if (recognition) {
-                recognition.stop();
-            }
-            // Reset all voice buttons
-            document.getElementById('voiceBtn').textContent = '🎤';
-            document.getElementById('voiceBtn').style.background = '#667eea';
-            document.getElementById('voiceBtn2').textContent = '🎤';
-            document.getElementById('voiceBtn2').style.background = '#667eea';
-        }
-
-        // Content Generation
         async function generateContent() {
             const apiKey = document.getElementById('apiKey').value.trim();
             const topic = document.getElementById('topic').value.trim();
@@ -452,6 +348,9 @@
                 alert('请输入内容主题');
                 return;
             }
+            
+            // Save API Key if "remember" is checked
+            saveApiKey();
             
             const btn = document.getElementById('generateBtn');
             const loading = document.getElementById('loading');
